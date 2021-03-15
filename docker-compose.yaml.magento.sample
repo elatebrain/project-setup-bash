@@ -1,0 +1,96 @@
+version: '3'
+services:
+  web:
+    image: webdevops/php-apache-dev:7.3
+    container_name: web
+    restart: always
+    user: application
+    environment:
+      - WEB_ALIAS_DOMAIN=%SITE_DOMAIN%
+      - WEB_DOCUMENT_ROOT=/app
+      - PHP_DATE_TIMEZONE=EST
+      - PHP_DISPLAY_ERRORS=1
+      - PHP_MEMORY_LIMIT=5120M
+      - PHP_MAX_EXECUTION_TIME=300
+      - PHP_POST_MAX_SIZE=500M
+      - PHP_UPLOAD_MAX_FILESIZE=1024M
+      - PHP_DEBUGGER=none
+    volumes:
+      - ./:/app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "32823:22"
+    links:
+      - mysql
+      - redis
+    networks:
+      - frontend
+      - backend
+  mysql:
+    image: mariadb:10.1.47
+    container_name: mysql
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=%MYSQL_ROOT_PASSWORD%
+      - MYSQL_DATABASE=%DATABASE_NAME%
+      - MYSQL_ROOT_HOST=%
+    volumes:
+      - %PROJECT_NAME%-database-data:/var/lib/mysql
+    networks:
+      - backend
+  phpmyadmin:
+    container_name: phpmyadmin
+    restart: always
+    image: phpmyadmin/phpmyadmin:latest
+    environment:
+      - MYSQL_ROOT_PASSWORD=%MYSQL_ROOT_PASSWORD%
+    ports:
+      - "8080:80"
+    links:
+      - mysql:db
+    depends_on:
+      - mysql
+    networks:
+      - frontend
+      - backend
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.5.2
+    container_name: elasticsearch
+    environment:
+      - "discovery.type=single-node"
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - %PROJECT_NAME%-esdata:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
+    networks:
+      - frontend
+  redis:
+    image: redis:6.2.1
+    container_name: redis
+    restart: always
+    ports:
+      - 6379:6379
+    volumes:
+      - %PROJECT_NAME%-redis-data:/data
+volumes:
+  %PROJECT_NAME%-database-data:
+    external: false
+  %PROJECT_NAME%-esdata:
+    driver: local
+  %PROJECT_NAME%-redis-data:
+    external: false
+networks:
+  frontend:
+    name: frontend
+    driver: bridge
+  backend:
+    name: backend
+    driver: bridge
+  default:
+    external:
+      name: frontend
